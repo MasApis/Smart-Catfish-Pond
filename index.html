@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>masapistech | Smart Pond</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        .card-glow { transition: all 0.3s ease; }
+        .bg-ideal { background-color: rgba(34, 197, 94, 0.2); border-color: #22c55e; }
+        .bg-warning { background-color: rgba(234, 179, 8, 0.2); border-color: #eab308; }
+        .bg-danger { background-color: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="container mx-auto p-8 max-w-5xl">
+        <div class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-blue-400 mb-2">Smart Catfish Pond Pak Achmad</h1>
+            <p class="text-gray-400 italic">Monitoring Realtime by masapistech</p>
+            <div id="connection-status" class="mt-4 text-xs inline-block px-3 py-1 rounded-full bg-green-900 text-green-300 border border-green-500">
+                ● System Online
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div id="card-temp" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
+                <p class="text-xs uppercase font-semibold text-gray-400">Suhu Air</p>
+                <h2 id="temp" class="text-6xl font-bold my-4">--°C</h2>
+                <div id="status-temp" class="text-sm font-medium px-3 py-1 rounded-lg inline-block">Memuat...</div>
+                <p id="adv-temp" class="text-xs text-gray-500 mt-4 leading-relaxed"></p>
+            </div>
+
+            <div id="card-ph" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
+                <p class="text-xs uppercase font-semibold text-gray-400">Kadar pH</p>
+                <h2 id="ph" class="text-6xl font-bold my-4">--</h2>
+                <div id="status-ph" class="text-sm font-medium px-3 py-1 rounded-lg inline-block">Memuat...</div>
+                <p id="adv-ph" class="text-xs text-gray-500 mt-4 leading-relaxed"></p>
+            </div>
+
+            <div id="card-turb" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
+                <p class="text-xs uppercase font-semibold text-gray-400">Kekeruhan</p>
+                <h2 id="turb" class="text-6xl font-bold my-4">--%</h2>
+                <div id="status-turb" class="text-sm font-medium px-3 py-1 rounded-lg inline-block">Memuat...</div>
+                <p id="adv-turb" class="text-xs text-gray-500 mt-4 leading-relaxed"></p>
+            </div>
+        </div>
+
+        <!-- <footer class="mt-12 text-center text-gray-600 text-sm">
+            &copy; 2026 masapistech IoT Project. Data diperbarui secara otomatis.
+        </footer> -->
+    </div>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://smart-pond-lele-default-rtdb.asia-southeast1.firebasedatabase.app/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function updateUI(id, value, status, colorClass, advice) {
+            const card = document.getElementById('card-' + id);
+            const statusBox = document.getElementById('status-' + id);
+            const adviceBox = document.getElementById('adv-' + id);
+            
+            // Reset classes
+            card.classList.remove('bg-ideal', 'bg-warning', 'bg-danger');
+            statusBox.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500', 'text-white');
+            
+            // Apply new classes
+            card.classList.add('bg-' + colorClass);
+            statusBox.innerText = status;
+            statusBox.classList.add(colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500'), 'text-white');
+            adviceBox.innerText = advice;
+        }
+
+        db.ref('pond').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if(!data) return;
+
+            // 1. Logika Suhu
+            document.getElementById('temp').innerText = data.temp.toFixed(1) + "°C";
+            if(data.temp >= 27 && data.temp <= 31) {
+                updateUI('temp', data.temp, "IDEAL", "ideal", "Suhu air sangat mendukung pertumbuhan lele.");
+            } else if(data.temp < 27) {
+                updateUI('temp', data.temp, "DINGIN", "warning", "Air terlalu dingin. Tambahkan sedikit air hangat atau cek pemanas.");
+            } else {
+                updateUI('temp', data.temp, "PANAS", "danger", "Air terlalu panas! Segera tambah peneduh atau sirkulasi air.");
+            }
+
+            // 2. Logika pH
+            document.getElementById('ph').innerText = data.ph.toFixed(1);
+            if(data.ph >= 6.5 && data.ph <= 8.5) {
+                updateUI('ph', data.ph, "NORMAL", "ideal", "Tingkat keasaman air seimbang.");
+            } else if(data.ph < 6.5) {
+                updateUI('ph', data.ph, "ASAM", "danger", "Bahaya! Air terlalu asam. Segera beri taburan garam ikan atau kapur.");
+            } else {
+                updateUI('ph', data.ph, "BASA", "warning", "Air terlalu basa. Ganti 30% volume air dengan air bersih.");
+            }
+
+            // 3. Logika Kekeruhan (Pastikan di Firebase namanya 'turbidity')
+            const turbidityVal = data.turbidity || 0;
+            document.getElementById('turb').innerText = Math.round(turbidityVal) + "%";
+            if(turbidityVal < 60) {
+                updateUI('turb', turbidityVal, "JERNIH", "ideal", "Kondisi air cukup bersih untuk lele.");
+            } else if(turbidityVal >= 60 && turbidityVal < 75) {
+                updateUI('turb', turbidityVal, "WASPADA", "warning", "Air mulai jenuh. Awasi pemberian pakan.");
+            } else {
+                updateUI('turb', turbidityVal, "KOTOR", "danger", "Air sangat kotor! Segera kuras dasar kolam.");
+            }
+        });
+    </script>
+</body>
+</html>
