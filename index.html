@@ -14,61 +14,75 @@
         .bg-warning { background-color: rgba(234, 179, 8, 0.2); border-color: #eab308; }
         .bg-danger { background-color: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
         .btn-active { background-color: #3b82f6 !important; color: white; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
     </style>
 </head>
 <body class="bg-gray-900 text-white font-sans">
-    <div class="container mx-auto p-8 max-w-5xl">
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
         <div class="text-center mb-10">
-            <h1 class="text-4xl font-bold text-blue-400 mb-1">Smart Catfish Pond Pak Achmad</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-400 mb-2">Smart Catfish Pond Pak Achmad</h1>
             
-            <div class="flex items-center justify-center gap-2 mb-2">
+            <div class="flex items-center justify-center gap-2 mb-1">
                 <span id="connection-dot" class="text-red-500 text-xl">●</span> 
-                <span id="connection-text" class="text-sm font-bold tracking-widest uppercase text-gray-500 text-red-500">Offline</span>
+                <span id="connection-text" class="text-sm font-bold tracking-widest uppercase text-red-500">Offline</span>
             </div>
-            <p id="last-update" class="text-[10px] text-gray-500 italic mb-2"></p>
+            <p id="last-update" class="text-[10px] text-gray-500 italic mb-4"></p>
             
-            <p class="text-gray-400 italic">Monitoring Realtime by masapistech</p>
+            <p class="text-gray-400 italic text-sm">Monitoring Realtime by masapistech</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div id="card-temp" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
+            <div id="card-temp" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow text-center">
                 <p class="text-xs uppercase font-semibold text-gray-400">Suhu Air</p>
-                <h2 id="temp" class="text-6xl font-bold my-4">--°C</h2>
+                <h2 id="temp" class="text-5xl md:text-6xl font-bold my-4">--°C</h2>
                 <div id="status-temp" class="text-sm font-medium px-3 py-1 rounded-lg inline-block">Memuat...</div>
-                <p id="adv-temp" class="text-xs text-gray-500 mt-4 leading-relaxed"></p>
+                <p id="adv-temp" class="text-xs text-gray-400 mt-4 leading-relaxed"></p>
             </div>
 
-            <div id="card-ph" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
+            <div id="card-ph" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow text-center">
                 <p class="text-xs uppercase font-semibold text-gray-400">Kadar pH</p>
-                <h2 id="ph" class="text-6xl font-bold my-4">--</h2>
+                <h2 id="ph" class="text-5xl md:text-6xl font-bold my-4">--</h2>
                 <div id="status-ph" class="text-sm font-medium px-3 py-1 rounded-lg inline-block">Memuat...</div>
                 <p id="adv-ph" class="text-xs text-gray-500 mt-4 leading-relaxed"></p>
             </div>
 
-            <div id="card-turb" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
+            <div id="card-turb" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow text-center">
                 <p class="text-xs uppercase font-semibold text-gray-400">Kekeruhan</p>
-                <h2 id="turb" class="text-6xl font-bold my-4">--%</h2>
+                <h2 id="turb" class="text-5xl md:text-6xl font-bold my-4">--%</h2>
                 <div id="status-turb" class="text-sm font-medium px-3 py-1 rounded-lg inline-block">Memuat...</div>
-                <p id="adv-turb" class="text-xs text-gray-500 mt-4 leading-relaxed"></p>
+                <p id="adv-turb" class="text-xs text-gray-400 mt-4 leading-relaxed"></p>
             </div>
         </div>
 
-        <div class="bg-gray-800 p-6 rounded-3xl mt-6 shadow-xl border border-gray-700">
-            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
-                <h3 class="text-lg font-bold text-blue-300">Grafik Analisis</h3>
-                <div class="flex bg-gray-700 rounded-xl p-1 gap-1">
-                    <button onclick="switchChart('temp')" id="btn-temp" class="px-4 py-2 text-xs font-bold rounded-lg btn-active transition-all">SUHU</button>
-                    <button onclick="switchChart('ph')" id="btn-ph" class="px-4 py-2 text-xs font-bold rounded-lg hover:bg-gray-600 transition-all">PH</button>
-                    <button onclick="switchChart('turbidity')" id="btn-turbidity" class="px-4 py-2 text-xs font-bold rounded-lg hover:bg-gray-600 transition-all">KERUH</button>
+        <div class="bg-gray-800 p-4 md:p-6 rounded-3xl mt-6 shadow-xl border border-gray-700">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                <h3 class="text-lg font-bold text-blue-300 uppercase tracking-wider">Grafik Analisis</h3>
+                
+                <div class="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-gray-900/50 p-2 rounded-2xl border border-gray-700 w-full md:w-auto">
+                    <div class="flex bg-gray-700 rounded-xl p-1 gap-1">
+                        <button onclick="switchChart('temp')" id="btn-temp" class="px-3 py-1.5 text-[10px] font-bold rounded-lg btn-active transition-all">SUHU</button>
+                        <button onclick="switchChart('ph')" id="btn-ph" class="px-3 py-1.5 text-[10px] font-bold rounded-lg hover:bg-gray-600 transition-all">PH</button>
+                        <button onclick="switchChart('turbidity')" id="btn-turbidity" class="px-3 py-1.5 text-[10px] font-bold rounded-lg hover:bg-gray-600 transition-all">KERUH</button>
+                    </div>
+                    
+                    <div class="border-l-0 md:border-l border-gray-600 md:pl-4 w-full md:w-auto text-center">
+                        <select id="interval-select" onchange="changeInterval()" class="bg-gray-700 text-white text-[10px] font-bold rounded-lg px-3 py-2 outline-none border-none cursor-pointer hover:bg-gray-600 transition-all w-full md:w-auto">
+                            <option value="60000">TREN 1 MENIT</option>
+                            <option value="600000">TREN 10 MENIT</option>
+                            <option value="3600000">TREN 1 JAM</option>
+                        </select>
+                    </div>
                 </div>
             </div>
+            
             <div class="h-64">
                 <canvas id="pondChart"></canvas>
             </div>
         </div>
 
         <div class="mt-8 bg-gray-800 rounded-3xl p-6 shadow-xl border border-gray-700">
-            <h3 class="text-lg font-bold mb-4 text-blue-300">Log Aktivitas Kolam</h3>
+            <h3 class="text-lg font-bold mb-4 text-blue-300 uppercase tracking-widest text-sm">Log Aktivitas Kolam</h3>
             <div id="log-container" class="space-y-2 max-h-40 overflow-y-auto text-xs font-mono custom-scrollbar"></div>
         </div>
     </div>
@@ -79,13 +93,13 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 2. Chart Logic
+        // 2. Chart Variables & Logic
         let activeParam = 'temp';
+        let chartInterval = 60000;
+        let lastChartUpdateTime = 0;
+        
         const chartData = {
-            labels: [],
-            temp: [],
-            ph: [],
-            turbidity: []
+            labels: [], temp: [], ph: [], turbidity: []
         };
 
         const ctx = document.getElementById('pondChart').getContext('2d');
@@ -95,11 +109,13 @@
                 labels: [],
                 datasets: [{
                     label: 'Suhu (°C)',
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: '#f97316',
+                    backgroundColor: 'rgba(249, 115, 22, 0.1)',
                     data: [],
                     fill: true,
-                    tension: 0.4
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#f97316'
                 }]
             },
             options: { 
@@ -107,49 +123,54 @@
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } },
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } }
+                    x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 10 } } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280', font: { size: 10 } } }
                 }
             }
         });
 
         function switchChart(param) {
             activeParam = param;
-            // Update Button UI
-            ['temp', 'ph', 'turbidity'].forEach(p => {
-                document.getElementById('btn-' + p).classList.remove('btn-active');
-            });
+            ['temp', 'ph', 'turbidity'].forEach(p => document.getElementById('btn-' + p).classList.remove('btn-active'));
             document.getElementById('btn-' + param).classList.add('btn-active');
 
-            // Update Chart Label & Color
             const colors = { temp: '#f97316', ph: '#ec4899', turbidity: '#3b82f6' };
             const labels = { temp: 'Suhu (°C)', ph: 'Kadar pH', turbidity: 'Kekeruhan (%)' };
             
             pondChart.data.datasets[0].label = labels[param];
             pondChart.data.datasets[0].borderColor = colors[param];
             pondChart.data.datasets[0].backgroundColor = colors[param] + '1A';
+            pondChart.data.datasets[0].pointBackgroundColor = colors[param];
             updateChartDisplay();
+        }
+
+        function changeInterval() {
+            chartInterval = parseInt(document.getElementById('interval-select').value);
+            chartData.labels = []; chartData.temp = []; chartData.ph = []; chartData.turbidity = [];
+            lastChartUpdateTime = 0; 
+            pondChart.update();
+            addLog("Interval grafik diubah ke " + (chartInterval/60000) + " menit.", "info");
         }
 
         function updateChartDisplay() {
             pondChart.data.labels = chartData.labels;
             pondChart.data.datasets[0].data = chartData[activeParam];
-            pondChart.update('none'); // Update tanpa animasi agar smooth
+            pondChart.update();
         }
 
-        // 3. Helper Functions
+        // 3. Helpers
         function addLog(message, type) {
             const logBox = document.getElementById('log-container');
             const time = new Date().toLocaleTimeString();
-            const color = type === 'danger' ? 'text-red-400 font-bold' : 'text-green-400';
+            const color = type === 'danger' ? 'text-red-400 font-bold' : (type === 'info' ? 'text-blue-400' : 'text-green-400');
             logBox.insertAdjacentHTML('afterbegin', `<p class="${color}">[${time}] ${message}</p>`);
         }
 
         function updateUI(id, value, status, colorClass, advice) {
-            document.getElementById('card-' + id).className = `bg-gray-800 p-6 rounded-3xl border-2 shadow-xl card-glow bg-${colorClass}`;
+            document.getElementById('card-' + id).className = `bg-gray-800 p-6 rounded-3xl border-2 shadow-xl card-glow bg-${colorClass} text-center`;
             const statusBox = document.getElementById('status-' + id);
             statusBox.innerText = status;
-            statusBox.className = `text-sm font-medium px-3 py-1 rounded-lg inline-block text-white ${colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500')}`;
+            statusBox.className = `text-xs font-bold px-3 py-1 rounded-full text-white ${colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500')}`;
             document.getElementById('adv-' + id).innerText = advice;
         }
 
@@ -161,47 +182,41 @@
             const now = Date.now();
             const lastSeen = data.last_seen || 0;
             
-            // Connection Status (Di bawah Judul)
             const isOnline = (now - lastSeen) < 15000;
             const dot = document.getElementById('connection-dot');
             const text = document.getElementById('connection-text');
-            
             dot.className = isOnline ? 'text-green-500 text-xl' : 'text-red-500 text-xl';
             text.innerText = isOnline ? 'System Online' : 'System Offline';
             text.className = `text-sm font-bold tracking-widest uppercase ${isOnline ? 'text-green-500' : 'text-red-500'}`;
             document.getElementById('last-update').innerText = "Last Sync: " + new Date(lastSeen).toLocaleString();
 
-            // Update Global Data Arrays for Chart
-            const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            if (chartData.labels.length > 15) {
-                chartData.labels.shift();
-                chartData.temp.shift();
-                chartData.ph.shift();
-                chartData.turbidity.shift();
-            }
-            chartData.labels.push(timeLabel);
-            chartData.temp.push(data.temp);
-            chartData.ph.push(data.ph);
-            chartData.turbidity.push(data.turbidity || 0);
-            
-            updateChartDisplay();
-
-            // Card Suhu
             document.getElementById('temp').innerText = data.temp.toFixed(1) + "°C";
-            if(data.temp >= 27 && data.temp <= 31) updateUI('temp', data.temp, "IDEAL", "ideal", "Kondisi air optimal.");
-            else if(data.temp < 27) updateUI('temp', data.temp, "DINGIN", "warning", "Suhu rendah.");
-            else { updateUI('temp', data.temp, "PANAS", "danger", "Suhu tinggi!"); addLog("Peringatan: Suhu panas!", "danger"); }
-
-            // Card pH
             document.getElementById('ph').innerText = data.ph.toFixed(1);
-            if(data.ph >= 6.5 && data.ph <= 8.5) updateUI('ph', data.ph, "NORMAL", "ideal", "pH Stabil.");
-            else { updateUI('ph', data.ph, "BAHAYA", "danger", "Cek pH segera!"); addLog("Peringatan: pH tidak stabil!", "danger"); }
+            document.getElementById('turb').innerText = Math.round(data.turbidity || 0) + "%";
 
-            // Card Turbidity
-            const turb = data.turbidity || 0;
-            document.getElementById('turb').innerText = Math.round(turb) + "%";
-            if(turb < 70) updateUI('turb', turb, "JERNIH", "ideal", "Air bersih.");
-            else { updateUI('turb', turb, "KOTOR", "danger", "Kuras air!"); addLog("Peringatan: Air kotor!", "danger"); }
+            if (now - lastChartUpdateTime >= chartInterval) {
+                const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (chartData.labels.length > 20) {
+                    chartData.labels.shift(); chartData.temp.shift(); chartData.ph.shift(); chartData.turbidity.shift();
+                }
+                chartData.labels.push(timeLabel);
+                chartData.temp.push(data.temp);
+                chartData.ph.push(data.ph);
+                chartData.turbidity.push(data.turbidity || 0);
+                updateChartDisplay();
+                lastChartUpdateTime = now;
+            }
+
+            if(data.temp >= 27 && data.temp <= 31) updateUI('temp', data.temp, "IDEAL", "ideal", "Pertumbuhan maksimal.");
+            else if(data.temp < 27) updateUI('temp', data.temp, "DINGIN", "warning", "Suhu air rendah.");
+            else { updateUI('temp', data.temp, "PANAS", "danger", "Suhu air terlalu panas!"); addLog("Peringatan: Suhu panas kritis!", "danger"); }
+
+            if(data.ph >= 6.5 && data.ph <= 8.5) updateUI('ph', data.ph, "NORMAL", "ideal", "pH air seimbang.");
+            else { updateUI('ph', data.ph, "BAHAYA", "danger", "Kondisi pH buruk!"); addLog("Peringatan: pH tidak stabil!", "danger"); }
+
+            const turbVal = data.turbidity || 0;
+            if(turbVal < 70) updateUI('turb', turbVal, "JERNIH", "ideal", "Kejernihan air terjaga.");
+            else { updateUI('turb', turbVal, "KOTOR", "danger", "Air keruh, kuras segera!"); addLog("Peringatan: Air sangat kotor!", "danger"); }
         });
     </script>
 </body>
