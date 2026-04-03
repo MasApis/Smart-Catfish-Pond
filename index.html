@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>masapistech | Smart Pond</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
@@ -12,19 +13,24 @@
         .bg-ideal { background-color: rgba(34, 197, 94, 0.2); border-color: #22c55e; }
         .bg-warning { background-color: rgba(234, 179, 8, 0.2); border-color: #eab308; }
         .bg-danger { background-color: rgba(239, 68, 68, 0.2); border-color: #ef4444; }
+        .btn-active { background-color: #3b82f6 !important; color: white; }
     </style>
 </head>
 <body class="bg-gray-900 text-white font-sans">
     <div class="container mx-auto p-8 max-w-5xl">
         <div class="text-center mb-10">
-            <h1 class="text-4xl font-bold text-blue-400 mb-2">Smart Catfish Pond Pak Achmad</h1>
-            <p class="text-gray-400 italic">Monitoring Realtime by masapistech</p>
-            <div id="connection-status" class="mt-4 text-xs inline-block px-3 py-1 rounded-full bg-green-900 text-green-300 border border-green-500">
-                ● System Online
+            <h1 class="text-4xl font-bold text-blue-400 mb-1">Smart Catfish Pond Pak Achmad</h1>
+            
+            <div class="flex items-center justify-center gap-2 mb-2">
+                <span id="connection-dot" class="text-red-500 text-xl">●</span> 
+                <span id="connection-text" class="text-sm font-bold tracking-widest uppercase text-gray-500 text-red-500">Offline</span>
             </div>
+            <p id="last-update" class="text-[10px] text-gray-500 italic mb-2"></p>
+            
+            <p class="text-gray-400 italic">Monitoring Realtime by masapistech</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div id="card-temp" class="bg-gray-800 p-6 rounded-3xl border-2 border-gray-700 shadow-xl card-glow">
                 <p class="text-xs uppercase font-semibold text-gray-400">Suhu Air</p>
                 <h2 id="temp" class="text-6xl font-bold my-4">--°C</h2>
@@ -47,66 +53,155 @@
             </div>
         </div>
 
-        <!-- <footer class="mt-12 text-center text-gray-600 text-sm">
-            &copy; 2026 masapistech IoT Project. Data diperbarui secara otomatis.
-        </footer> -->
+        <div class="bg-gray-800 p-6 rounded-3xl mt-6 shadow-xl border border-gray-700">
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <h3 class="text-lg font-bold text-blue-300">Grafik Analisis</h3>
+                <div class="flex bg-gray-700 rounded-xl p-1 gap-1">
+                    <button onclick="switchChart('temp')" id="btn-temp" class="px-4 py-2 text-xs font-bold rounded-lg btn-active transition-all">SUHU</button>
+                    <button onclick="switchChart('ph')" id="btn-ph" class="px-4 py-2 text-xs font-bold rounded-lg hover:bg-gray-600 transition-all">PH</button>
+                    <button onclick="switchChart('turbidity')" id="btn-turbidity" class="px-4 py-2 text-xs font-bold rounded-lg hover:bg-gray-600 transition-all">KERUH</button>
+                </div>
+            </div>
+            <div class="h-64">
+                <canvas id="pondChart"></canvas>
+            </div>
+        </div>
+
+        <div class="mt-8 bg-gray-800 rounded-3xl p-6 shadow-xl border border-gray-700">
+            <h3 class="text-lg font-bold mb-4 text-blue-300">Log Aktivitas Kolam</h3>
+            <div id="log-container" class="space-y-2 max-h-40 overflow-y-auto text-xs font-mono custom-scrollbar"></div>
+        </div>
     </div>
 
     <script>
+        // 1. Config Firebase
         const firebaseConfig = { databaseURL: "https://smart-pond-lele-default-rtdb.asia-southeast1.firebasedatabase.app/" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        function updateUI(id, value, status, colorClass, advice) {
-            const card = document.getElementById('card-' + id);
-            const statusBox = document.getElementById('status-' + id);
-            const adviceBox = document.getElementById('adv-' + id);
+        // 2. Chart Logic
+        let activeParam = 'temp';
+        const chartData = {
+            labels: [],
+            temp: [],
+            ph: [],
+            turbidity: []
+        };
+
+        const ctx = document.getElementById('pondChart').getContext('2d');
+        let pondChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Suhu (°C)',
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    data: [],
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+
+        function switchChart(param) {
+            activeParam = param;
+            // Update Button UI
+            ['temp', 'ph', 'turbidity'].forEach(p => {
+                document.getElementById('btn-' + p).classList.remove('btn-active');
+            });
+            document.getElementById('btn-' + param).classList.add('btn-active');
+
+            // Update Chart Label & Color
+            const colors = { temp: '#f97316', ph: '#ec4899', turbidity: '#3b82f6' };
+            const labels = { temp: 'Suhu (°C)', ph: 'Kadar pH', turbidity: 'Kekeruhan (%)' };
             
-            // Reset classes
-            card.classList.remove('bg-ideal', 'bg-warning', 'bg-danger');
-            statusBox.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500', 'text-white');
-            
-            // Apply new classes
-            card.classList.add('bg-' + colorClass);
-            statusBox.innerText = status;
-            statusBox.classList.add(colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500'), 'text-white');
-            adviceBox.innerText = advice;
+            pondChart.data.datasets[0].label = labels[param];
+            pondChart.data.datasets[0].borderColor = colors[param];
+            pondChart.data.datasets[0].backgroundColor = colors[param] + '1A';
+            updateChartDisplay();
         }
 
+        function updateChartDisplay() {
+            pondChart.data.labels = chartData.labels;
+            pondChart.data.datasets[0].data = chartData[activeParam];
+            pondChart.update('none'); // Update tanpa animasi agar smooth
+        }
+
+        // 3. Helper Functions
+        function addLog(message, type) {
+            const logBox = document.getElementById('log-container');
+            const time = new Date().toLocaleTimeString();
+            const color = type === 'danger' ? 'text-red-400 font-bold' : 'text-green-400';
+            logBox.insertAdjacentHTML('afterbegin', `<p class="${color}">[${time}] ${message}</p>`);
+        }
+
+        function updateUI(id, value, status, colorClass, advice) {
+            document.getElementById('card-' + id).className = `bg-gray-800 p-6 rounded-3xl border-2 shadow-xl card-glow bg-${colorClass}`;
+            const statusBox = document.getElementById('status-' + id);
+            statusBox.innerText = status;
+            statusBox.className = `text-sm font-medium px-3 py-1 rounded-lg inline-block text-white ${colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500')}`;
+            document.getElementById('adv-' + id).innerText = advice;
+        }
+
+        // 4. MAIN LISTENER
         db.ref('pond').on('value', (snapshot) => {
             const data = snapshot.val();
-            if(!data) return;
+            if (!data) return;
 
-            // 1. Logika Suhu
+            const now = Date.now();
+            const lastSeen = data.last_seen || 0;
+            
+            // Connection Status (Di bawah Judul)
+            const isOnline = (now - lastSeen) < 15000;
+            const dot = document.getElementById('connection-dot');
+            const text = document.getElementById('connection-text');
+            
+            dot.className = isOnline ? 'text-green-500 text-xl' : 'text-red-500 text-xl';
+            text.innerText = isOnline ? 'System Online' : 'System Offline';
+            text.className = `text-sm font-bold tracking-widest uppercase ${isOnline ? 'text-green-500' : 'text-red-500'}`;
+            document.getElementById('last-update').innerText = "Last Sync: " + new Date(lastSeen).toLocaleString();
+
+            // Update Global Data Arrays for Chart
+            const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (chartData.labels.length > 15) {
+                chartData.labels.shift();
+                chartData.temp.shift();
+                chartData.ph.shift();
+                chartData.turbidity.shift();
+            }
+            chartData.labels.push(timeLabel);
+            chartData.temp.push(data.temp);
+            chartData.ph.push(data.ph);
+            chartData.turbidity.push(data.turbidity || 0);
+            
+            updateChartDisplay();
+
+            // Card Suhu
             document.getElementById('temp').innerText = data.temp.toFixed(1) + "°C";
-            if(data.temp >= 27 && data.temp <= 31) {
-                updateUI('temp', data.temp, "IDEAL", "ideal", "Suhu air sangat mendukung pertumbuhan lele.");
-            } else if(data.temp < 27) {
-                updateUI('temp', data.temp, "DINGIN", "warning", "Air terlalu dingin. Tambahkan sedikit air hangat atau cek pemanas.");
-            } else {
-                updateUI('temp', data.temp, "PANAS", "danger", "Air terlalu panas! Segera tambah peneduh atau sirkulasi air.");
-            }
+            if(data.temp >= 27 && data.temp <= 31) updateUI('temp', data.temp, "IDEAL", "ideal", "Kondisi air optimal.");
+            else if(data.temp < 27) updateUI('temp', data.temp, "DINGIN", "warning", "Suhu rendah.");
+            else { updateUI('temp', data.temp, "PANAS", "danger", "Suhu tinggi!"); addLog("Peringatan: Suhu panas!", "danger"); }
 
-            // 2. Logika pH
+            // Card pH
             document.getElementById('ph').innerText = data.ph.toFixed(1);
-            if(data.ph >= 6.5 && data.ph <= 8.5) {
-                updateUI('ph', data.ph, "NORMAL", "ideal", "Tingkat keasaman air seimbang.");
-            } else if(data.ph < 6.5) {
-                updateUI('ph', data.ph, "ASAM", "danger", "Bahaya! Air terlalu asam. Segera beri taburan garam ikan atau kapur.");
-            } else {
-                updateUI('ph', data.ph, "BASA", "warning", "Air terlalu basa. Ganti 30% volume air dengan air bersih.");
-            }
+            if(data.ph >= 6.5 && data.ph <= 8.5) updateUI('ph', data.ph, "NORMAL", "ideal", "pH Stabil.");
+            else { updateUI('ph', data.ph, "BAHAYA", "danger", "Cek pH segera!"); addLog("Peringatan: pH tidak stabil!", "danger"); }
 
-            // 3. Logika Kekeruhan (Pastikan di Firebase namanya 'turbidity')
-            const turbidityVal = data.turbidity || 0;
-            document.getElementById('turb').innerText = Math.round(turbidityVal) + "%";
-            if(turbidityVal < 60) {
-                updateUI('turb', turbidityVal, "JERNIH", "ideal", "Kondisi air cukup bersih untuk lele.");
-            } else if(turbidityVal >= 60 && turbidityVal < 75) {
-                updateUI('turb', turbidityVal, "WASPADA", "warning", "Air mulai jenuh. Awasi pemberian pakan.");
-            } else {
-                updateUI('turb', turbidityVal, "KOTOR", "danger", "Air sangat kotor! Segera kuras dasar kolam.");
-            }
+            // Card Turbidity
+            const turb = data.turbidity || 0;
+            document.getElementById('turb').innerText = Math.round(turb) + "%";
+            if(turb < 70) updateUI('turb', turb, "JERNIH", "ideal", "Air bersih.");
+            else { updateUI('turb', turb, "KOTOR", "danger", "Kuras air!"); addLog("Peringatan: Air kotor!", "danger"); }
         });
     </script>
 </body>
