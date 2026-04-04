@@ -149,7 +149,7 @@
             
             // --- LOGIKA ONLINE STATUS ---
             // Jika lapor tiap 60 detik, kita kasih toleransi 80 detik (80000 ms)
-            const isOnline = (now - lastSeen) < 80000; 
+            const isOnline = (now - lastSeen) < 180000; 
             
             const dot = document.getElementById('connection-dot');
             const text = document.getElementById('connection-text');
