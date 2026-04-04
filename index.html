@@ -129,6 +129,7 @@
         db.ref('history').limitToLast(20).once('value', (snapshot) => {
             snapshot.forEach((childSnapshot) => {
                 const data = childSnapshot.val();
+                // Gunakan last_seen atau timestamp
                 const timeLabel = new Date(data.last_seen || data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 chartData.labels.push(timeLabel);
                 chartData.temp.push(data.temp);
@@ -138,50 +139,73 @@
             updateChartDisplay();
         });
 
-        // 4. MAIN LISTENER (SATU UNTUK SEMUA)
+        // 4. MAIN LISTENER (Real-time Cards & Connection)
         db.ref('pond').on('value', (snapshot) => {
             const data = snapshot.val();
             if (!data) return;
 
             const now = Date.now();
-            // Pakai last_seen sesuai yang dikirim ESP32
             const lastSeen = data.last_seen || 0; 
             
-            // --- LOGIKA ONLINE STATUS ---
-            // Jika lapor tiap 60 detik, kita kasih toleransi 80 detik (80000 ms)
+            // Online Status (Toleransi 3 Menit)
             const isOnline = (now - lastSeen) < 180000; 
-            
             const dot = document.getElementById('connection-dot');
             const text = document.getElementById('connection-text');
             
             dot.className = isOnline ? 'text-green-500 text-xl' : 'text-red-500 text-xl';
             text.innerText = isOnline ? 'System Online' : 'System Offline';
             text.className = `text-sm font-bold tracking-widest uppercase ${isOnline ? 'text-green-500' : 'text-red-500'}`;
-            document.getElementById('last-update').innerText = "Last Sync: " + new Date(lastSeen).toLocaleString();
+            
+            // Perbaikan format waktu agar tidak 1970
+            if(lastSeen > 0) {
+                document.getElementById('last-update').innerText = "Last Sync: " + new Date(lastSeen).toLocaleString();
+            }
 
-            // --- UPDATE CARD (REAL-TIME) ---
+            // Update Card Numbers
             document.getElementById('temp').innerText = data.temp.toFixed(1) + "°C";
             document.getElementById('ph').innerText = data.ph.toFixed(1);
             document.getElementById('turb').innerText = Math.round(data.turbidity || 0) + "%";
 
-            // --- UPDATE UI COLOR & LOG ---
-            if(data.temp >= 27 && data.temp <= 31) updateUI('temp', data.temp, "IDEAL", "ideal", "Pertumbuhan maksimal.");
-            else { updateUI('temp', data.temp, "PANAS", "danger", "Suhu tinggi!"); addLog("Peringatan: Suhu panas!", "danger"); }
+            // --- LOGIKA UI & STATUS (FIXED) ---
+            
+            // 1. Logika Suhu
+            if(data.temp >= 27 && data.temp <= 31) {
+                updateUI('temp', data.temp, "IDEAL", "ideal", "Pertumbuhan maksimal.");
+            } else if (data.temp < 27) {
+                updateUI('temp', data.temp, "DINGIN", "warning", "Suhu air terlalu rendah.");
+            } else {
+                updateUI('temp', data.temp, "PANAS", "danger", "Suhu tinggi!"); 
+                addLog("Peringatan: Suhu panas!", "danger");
+            }
 
-            if(data.ph >= 6.5 && data.ph <= 8.5) updateUI('ph', data.ph, "NORMAL", "ideal", "pH Stabil.");
-            else { updateUI('ph', data.ph, "BAHAYA", "danger", "Cek pH!"); addLog("Peringatan: pH buruk!", "danger"); }
+            // 2. Logika pH
+            if(data.ph >= 6.5 && data.ph <= 8.5) {
+                updateUI('ph', data.ph, "NORMAL", "ideal", "pH air stabil.");
+            } else if (data.ph < 6.5) {
+                updateUI('ph', data.ph, "ASAM", "danger", "Air terlalu asam!");
+                addLog("Peringatan: pH drop!", "danger");
+            } else {
+                updateUI('ph', data.ph, "BASA", "warning", "Air terlalu basa.");
+            }
 
+            // 3. Logika Turbidity
             const turbVal = data.turbidity || 0;
-            if(turbVal < 70) updateUI('turb', turbVal, "JERNIH", "ideal", "Air bersih.");
-            else { updateUI('turb', turbVal, "KOTOR", "danger", "Kuras air!"); addLog("Peringatan: Air kotor!", "danger"); }
+            if(turbVal < 70) {
+                updateUI('turb', turbVal, "JERNIH", "ideal", "Air bersih.");
+            } else {
+                updateUI('turb', turbVal, "KOTOR", "danger", "Kuras air!"); 
+                addLog("Peringatan: Air kotor!", "danger");
+            }
         });
 
-        // 5. LISTENER DATA BARU UNTUK GRAFIK
+        // 5. LISTENER DATA BARU (Untuk Grafik & Log History)
         db.ref('history').limitToLast(1).on('child_added', (snapshot) => {
             const data = snapshot.val();
             const timeLabel = new Date(data.last_seen || data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
-            if (chartData.labels.includes(timeLabel)) return;
+            // Hindari duplikasi data yang sama
+            if (chartData.labels.length > 0 && chartData.labels[chartData.labels.length - 1] === timeLabel && 
+                chartData.temp[chartData.temp.length - 1] === data.temp) return;
 
             if (chartData.labels.length > 20) {
                 chartData.labels.shift(); chartData.temp.shift(); 
@@ -200,30 +224,49 @@
             activeParam = param;
             ['temp', 'ph', 'turbidity'].forEach(p => document.getElementById('btn-' + p).classList.remove('btn-active'));
             document.getElementById('btn-' + param).classList.add('btn-active');
-            const colors = { temp: '#f97316', ph: '#ec4899', turbidity: '#3b82f6' };
-            pondChart.data.datasets[0].borderColor = colors[param];
-            pondChart.data.datasets[0].backgroundColor = colors[param] + '1A';
+            
+            const config = {
+                temp: { color: '#f97316', label: 'Suhu (°C)' },
+                ph: { color: '#ec4899', label: 'Kadar pH' },
+                turbidity: { color: '#3b82f6', label: 'Kekeruhan (%)' }
+            };
+            
+            pondChart.data.datasets[0].label = config[param].label;
+            pondChart.data.datasets[0].borderColor = config[param].color;
+            pondChart.data.datasets[0].backgroundColor = config[param].color + '1A';
+            pondChart.data.datasets[0].pointBackgroundColor = config[param].color;
             updateChartDisplay();
         }
 
         function updateChartDisplay() {
             pondChart.data.labels = chartData.labels;
             pondChart.data.datasets[0].data = chartData[activeParam];
-            pondChart.update();
+            pondChart.update('none'); // Update smooth tanpa animasi loncat
+        }
+
+        function changeInterval() {
+            chartInterval = parseInt(document.getElementById('interval-select').value);
+            // Kita tidak reset data agar histori tetap tampil, 
+            // tapi log baru akan mengikuti interval di ESP32.
+            addLog("Mode tren diubah.", "info");
         }
 
         function addLog(message, type) {
             const logBox = document.getElementById('log-container');
             const time = new Date().toLocaleTimeString();
-            const color = type === 'danger' ? 'text-red-400 font-bold' : 'text-green-400';
+            const color = type === 'danger' ? 'text-red-400 font-bold' : (type === 'info' ? 'text-blue-400' : 'text-green-400');
             logBox.insertAdjacentHTML('afterbegin', `<p class="${color}">[${time}] ${message}</p>`);
         }
 
         function updateUI(id, value, status, colorClass, advice) {
-            document.getElementById('card-' + id).className = `bg-gray-800 p-6 rounded-3xl border-2 shadow-xl card-glow bg-${colorClass} text-center`;
+            const card = document.getElementById('card-' + id);
+            // Reset classes
+            card.className = `bg-gray-800 p-6 rounded-3xl border-2 shadow-xl card-glow text-center bg-${colorClass}`;
+            
             const statusBox = document.getElementById('status-' + id);
             statusBox.innerText = status;
             statusBox.className = `text-xs font-bold px-3 py-1 rounded-full text-white ${colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500')}`;
+            
             document.getElementById('adv-' + id).innerText = advice;
         }
     </script>
