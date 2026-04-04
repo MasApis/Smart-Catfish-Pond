@@ -93,14 +93,11 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 2. Chart Variables & Logic
+        // 2. Chart Variables
         let activeParam = 'temp';
-        let chartInterval = 60000;
+        let chartInterval = 60000; 
         let lastChartUpdateTime = 0;
-        
-        const chartData = {
-            labels: [], temp: [], ph: [], turbidity: []
-        };
+        const chartData = { labels: [], temp: [], ph: [], turbidity: [] };
 
         const ctx = document.getElementById('pondChart').getContext('2d');
         let pondChart = new Chart(ctx, {
@@ -119,8 +116,7 @@
                 }]
             },
             options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 10 } } },
@@ -129,27 +125,85 @@
             }
         });
 
+        // 3. LOAD HISTORY (Data Awal saat Refresh)
+        db.ref('history').limitToLast(20).once('value', (snapshot) => {
+            snapshot.forEach((childSnapshot) => {
+                const data = childSnapshot.val();
+                const timeLabel = new Date(data.last_seen || data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                chartData.labels.push(timeLabel);
+                chartData.temp.push(data.temp);
+                chartData.ph.push(data.ph);
+                chartData.turbidity.push(data.turbidity || 0);
+            });
+            updateChartDisplay();
+        });
+
+        // 4. MAIN LISTENER (SATU UNTUK SEMUA)
+        db.ref('pond').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const now = Date.now();
+            // Pakai last_seen sesuai yang dikirim ESP32
+            const lastSeen = data.last_seen || 0; 
+            
+            // --- LOGIKA ONLINE STATUS ---
+            // Jika lapor tiap 60 detik, kita kasih toleransi 80 detik (80000 ms)
+            const isOnline = (now - lastSeen) < 80000; 
+            
+            const dot = document.getElementById('connection-dot');
+            const text = document.getElementById('connection-text');
+            
+            dot.className = isOnline ? 'text-green-500 text-xl' : 'text-red-500 text-xl';
+            text.innerText = isOnline ? 'System Online' : 'System Offline';
+            text.className = `text-sm font-bold tracking-widest uppercase ${isOnline ? 'text-green-500' : 'text-red-500'}`;
+            document.getElementById('last-update').innerText = "Last Sync: " + new Date(lastSeen).toLocaleString();
+
+            // --- UPDATE CARD (REAL-TIME) ---
+            document.getElementById('temp').innerText = data.temp.toFixed(1) + "°C";
+            document.getElementById('ph').innerText = data.ph.toFixed(1);
+            document.getElementById('turb').innerText = Math.round(data.turbidity || 0) + "%";
+
+            // --- UPDATE UI COLOR & LOG ---
+            if(data.temp >= 27 && data.temp <= 31) updateUI('temp', data.temp, "IDEAL", "ideal", "Pertumbuhan maksimal.");
+            else { updateUI('temp', data.temp, "PANAS", "danger", "Suhu tinggi!"); addLog("Peringatan: Suhu panas!", "danger"); }
+
+            if(data.ph >= 6.5 && data.ph <= 8.5) updateUI('ph', data.ph, "NORMAL", "ideal", "pH Stabil.");
+            else { updateUI('ph', data.ph, "BAHAYA", "danger", "Cek pH!"); addLog("Peringatan: pH buruk!", "danger"); }
+
+            const turbVal = data.turbidity || 0;
+            if(turbVal < 70) updateUI('turb', turbVal, "JERNIH", "ideal", "Air bersih.");
+            else { updateUI('turb', turbVal, "KOTOR", "danger", "Kuras air!"); addLog("Peringatan: Air kotor!", "danger"); }
+        });
+
+        // 5. LISTENER DATA BARU UNTUK GRAFIK
+        db.ref('history').limitToLast(1).on('child_added', (snapshot) => {
+            const data = snapshot.val();
+            const timeLabel = new Date(data.last_seen || data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            if (chartData.labels.includes(timeLabel)) return;
+
+            if (chartData.labels.length > 20) {
+                chartData.labels.shift(); chartData.temp.shift(); 
+                chartData.ph.shift(); chartData.turbidity.shift();
+            }
+
+            chartData.labels.push(timeLabel);
+            chartData.temp.push(data.temp);
+            chartData.ph.push(data.ph);
+            chartData.turbidity.push(data.turbidity || 0);
+            updateChartDisplay();
+        });
+
+        // --- FUNCTIONS ---
         function switchChart(param) {
             activeParam = param;
             ['temp', 'ph', 'turbidity'].forEach(p => document.getElementById('btn-' + p).classList.remove('btn-active'));
             document.getElementById('btn-' + param).classList.add('btn-active');
-
             const colors = { temp: '#f97316', ph: '#ec4899', turbidity: '#3b82f6' };
-            const labels = { temp: 'Suhu (°C)', ph: 'Kadar pH', turbidity: 'Kekeruhan (%)' };
-            
-            pondChart.data.datasets[0].label = labels[param];
             pondChart.data.datasets[0].borderColor = colors[param];
             pondChart.data.datasets[0].backgroundColor = colors[param] + '1A';
-            pondChart.data.datasets[0].pointBackgroundColor = colors[param];
             updateChartDisplay();
-        }
-
-        function changeInterval() {
-            chartInterval = parseInt(document.getElementById('interval-select').value);
-            chartData.labels = []; chartData.temp = []; chartData.ph = []; chartData.turbidity = [];
-            lastChartUpdateTime = 0; 
-            pondChart.update();
-            addLog("Interval grafik diubah ke " + (chartInterval/60000) + " menit.", "info");
         }
 
         function updateChartDisplay() {
@@ -158,11 +212,10 @@
             pondChart.update();
         }
 
-        // 3. Helpers
         function addLog(message, type) {
             const logBox = document.getElementById('log-container');
             const time = new Date().toLocaleTimeString();
-            const color = type === 'danger' ? 'text-red-400 font-bold' : (type === 'info' ? 'text-blue-400' : 'text-green-400');
+            const color = type === 'danger' ? 'text-red-400 font-bold' : 'text-green-400';
             logBox.insertAdjacentHTML('afterbegin', `<p class="${color}">[${time}] ${message}</p>`);
         }
 
@@ -173,51 +226,6 @@
             statusBox.className = `text-xs font-bold px-3 py-1 rounded-full text-white ${colorClass === 'ideal' ? 'bg-green-500' : (colorClass === 'warning' ? 'bg-yellow-500' : 'bg-red-500')}`;
             document.getElementById('adv-' + id).innerText = advice;
         }
-
-        // 4. MAIN LISTENER
-        db.ref('pond').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-
-            const now = Date.now();
-            const lastSeen = data.last_seen || 0;
-            
-            const isOnline = (now - lastSeen) < 15000;
-            const dot = document.getElementById('connection-dot');
-            const text = document.getElementById('connection-text');
-            dot.className = isOnline ? 'text-green-500 text-xl' : 'text-red-500 text-xl';
-            text.innerText = isOnline ? 'System Online' : 'System Offline';
-            text.className = `text-sm font-bold tracking-widest uppercase ${isOnline ? 'text-green-500' : 'text-red-500'}`;
-            document.getElementById('last-update').innerText = "Last Sync: " + new Date(lastSeen).toLocaleString();
-
-            document.getElementById('temp').innerText = data.temp.toFixed(1) + "°C";
-            document.getElementById('ph').innerText = data.ph.toFixed(1);
-            document.getElementById('turb').innerText = Math.round(data.turbidity || 0) + "%";
-
-            if (now - lastChartUpdateTime >= chartInterval) {
-                const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                if (chartData.labels.length > 20) {
-                    chartData.labels.shift(); chartData.temp.shift(); chartData.ph.shift(); chartData.turbidity.shift();
-                }
-                chartData.labels.push(timeLabel);
-                chartData.temp.push(data.temp);
-                chartData.ph.push(data.ph);
-                chartData.turbidity.push(data.turbidity || 0);
-                updateChartDisplay();
-                lastChartUpdateTime = now;
-            }
-
-            if(data.temp >= 27 && data.temp <= 31) updateUI('temp', data.temp, "IDEAL", "ideal", "Pertumbuhan maksimal.");
-            else if(data.temp < 27) updateUI('temp', data.temp, "DINGIN", "warning", "Suhu air rendah.");
-            else { updateUI('temp', data.temp, "PANAS", "danger", "Suhu air terlalu panas!"); addLog("Peringatan: Suhu panas kritis!", "danger"); }
-
-            if(data.ph >= 6.5 && data.ph <= 8.5) updateUI('ph', data.ph, "NORMAL", "ideal", "pH air seimbang.");
-            else { updateUI('ph', data.ph, "BAHAYA", "danger", "Kondisi pH buruk!"); addLog("Peringatan: pH tidak stabil!", "danger"); }
-
-            const turbVal = data.turbidity || 0;
-            if(turbVal < 70) updateUI('turb', turbVal, "JERNIH", "ideal", "Kejernihan air terjaga.");
-            else { updateUI('turb', turbVal, "KOTOR", "danger", "Air keruh, kuras segera!"); addLog("Peringatan: Air sangat kotor!", "danger"); }
-        });
     </script>
 </body>
 </html>
