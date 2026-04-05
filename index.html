@@ -56,6 +56,21 @@
     </div>
 
     <script>
+        // --- KONFIGURASI TELEGRAM ---
+        const TELE_TOKEN = "8639936281:AAEoX810rCWGfo7fhg4VpFKzg9x_6CakhSU";
+        const TELE_CHAT_ID = "6199004691";
+
+        // Flag Anti-Spam (Biar gak dikirim terus tiap 5 detik)
+        let sudahLaporBahaya = false; 
+
+        function kirimTele(pesan) {
+            const url = `https://api.telegram.org/bot${TELE_TOKEN}/sendMessage?chat_id=${TELE_CHAT_ID}&text=${encodeURIComponent(pesan)}`;
+            
+            fetch(url)
+                .then(res => console.log("Telegram terkirim!"))
+                .catch(err => console.error("Gagal kirim Tele:", err));
+        }
+
         // Konfigurasi Firebase (Sesuaikan URL kamu)
         const firebaseConfig = { databaseURL: "https://smart-pond-lele-default-rtdb.asia-southeast1.firebasedatabase.app/" };
         firebase.initializeApp(firebaseConfig);
@@ -84,33 +99,86 @@
         // 2. New History Listener (Hanya untuk Log)
         db.ref('history').limitToLast(1).on('child_added', (snap) => {
             const d = snap.val();
-            const time = new Date(d.last_seen).toLocaleTimeString();
             
-            // Cek kondisi untuk masuk log
-            if(d.temp > 31) addLog(`Peringatan: Suhu Panas (${d.temp.toFixed(1)}°C)!`, 'danger');
-            else if(d.temp < 27) addLog(`Antisipasi: Suhu Dingin (${d.temp.toFixed(1)}°C).`, 'warning');
+            // FORMAT TANGGAL DETAIL: Senin, 05 April 2026 - 13:45:00
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const detailWaktu = new Date(d.last_seen).toLocaleString('id-ID', options);
             
-            if(d.ph < 6.5) addLog(`Peringatan: pH Drop (${d.ph.toFixed(1)})!`, 'danger');
-            else if(d.ph > 8.5) addLog(`Antisipasi: pH Terlalu Basa (${d.ph.toFixed(1)}).`, 'warning');
-            
-            if(d.turbidity >= 70) addLog(`Peringatan: Air Sangat Kotor!`, 'danger');
+            // --- LOGIKA ALARM LOG ---
+            // Suhu (25-30)
+            if(d.temp > 30) {
+                addLog(detailWaktu, `Peringatan : suhu kolam panas (${d.temp.toFixed(1)}°C)`, 'danger');
+            } else if(d.temp < 25) {
+                addLog(detailWaktu, `Peringatan : suhu kolam dingin (${d.temp.toFixed(1)}°C)`, 'danger');
+            }
+
+            // pH (6.5-8.0)
+            if(d.ph < 6.5) {
+                addLog(detailWaktu, `Peringatan : kadar pH terlalu asam (${d.ph.toFixed(1)})`, 'danger');
+            } else if(d.ph > 8.0) {
+                addLog(detailWaktu, `Peringatan : kadar pH terlalu basa (${d.ph.toFixed(1)})`, 'danger');
+            }
+
+            // Kekeruhan (>70)
+            if(d.turbidity >= 70) {
+                addLog(detailWaktu, `Peringatan : air kolam kotor parah (${Math.round(d.turbidity)}%)`, 'danger');
+            }
         });
 
         function processAlerts(d) {
-            // Suhu
-            if(d.temp >= 27 && d.temp <= 31) updateUI('temp', "IDEAL", "ideal", "Pertumbuhan maksimal.");
-            else if(d.temp < 27) updateUI('temp', "DINGIN", "warning", "Suhu air rendah.");
-            else updateUI('temp', "PANAS", "danger", "Suhu tinggi!");
+            let statusBahaya = false;
+            let pesanLaporan = "⚠️ [ALARM MASAPITECH] ⚠️\n\n";
 
-            // pH
-            if(d.ph >= 6.5 && d.ph <= 8.5) updateUI('ph', "NORMAL", "ideal", "pH air stabil.");
-            else if(d.ph < 6.5) updateUI('ph', "ASAM", "danger", "Air terlalu asam!");
-            else updateUI('ph', "BASA", "warning", "Air terlalu basa.");
+            // 1. Cek Suhu (25-30)
+            if(d.temp < 25 || d.temp > 30) {
+                statusBahaya = true;
+                const ket = d.temp > 30 ? "TERLALU PANAS" : "TERLALU DINGIN";
+                pesanLaporan += `Suhu: ${d.temp.toFixed(1)}°C (${ket})\n`;
+                updateUI('temp', ket.split(' ')[1], "danger", `Peringatan : suhu kolam ${ket.toLowerCase()}.`);
+            } else {
+                updateUI('temp', "IDEAL", "ideal", "Kondisi air sangat baik.");
+            }
 
-            // Turbidity
-            if(d.turbidity < 40) updateUI('turb', "JERNIH", "ideal", "Air sangat bersih.");
-            else if(d.turbidity < 70) updateUI('turb', "SEDANG", "warning", "Air mulai keruh.");
-            else updateUI('turb', "KOTOR", "danger", "Kuras air segera!");
+            // 2. Cek pH (6.5-8.0)
+            if(d.ph < 6.5 || d.ph > 8.0) {
+                statusBahaya = true;
+                const ket = d.ph < 6.5 ? "ASAM" : "BASA";
+                pesanLaporan += `pH: ${d.ph.toFixed(1)} (${ket})\n`;
+                updateUI('ph', ket, "danger", `Peringatan : kadar pH ${ket.toLowerCase()}.`);
+            } else {
+                updateUI('ph', "NORMAL", "ideal", "Kadar asam-basa stabil.");
+            }
+
+            // 3. Cek Kekeruhan (>70)
+            if(d.turbidity >= 70) {
+                statusBahaya = true;
+                pesanLaporan += `Kekeruhan: ${Math.round(d.turbidity)}% (KOTOR)\n`;
+                updateUI('turb', "KOTOR", "danger", "Peringatan : air kolam kotor.");
+            } else {
+                updateUI('turb', "JERNIH", "ideal", "Air bersih dan sehat.");
+            }
+
+            // --- LOGIKA PENGIRIMAN TELEGRAM ---
+            if(statusBahaya && !sudahLaporBahaya) {
+                kirimTele(pesanLaporan + "\nSegera cek kondisi kolam Pak Achmad!");
+                sudahLaporBahaya = true; // Kunci biar gak spam
+            } 
+            
+            // Reset kunci kalau semua sudah kembali IDEAL
+            if(!statusBahaya) {
+                if(sudahLaporBahaya) {
+                    kirimTele("✅ [INFO] Kondisi kolam sudah kembali IDEAL.");
+                }
+                sudahLaporBahaya = false;
+            }
         }
 
         function updateUI(id, status, colorClass, adv) {
@@ -121,11 +189,18 @@
             document.getElementById('adv-'+id).innerText = adv;
         }
 
-        function addLog(msg, type) {
+        function addLog(waktu, msg, type) {
             const container = document.getElementById('log-container');
-            const time = new Date().toLocaleTimeString();
+            
+            // Cek agar tidak ada pesan kembar yang masuk berurutan (Anti-Spam)
+            if (container.firstChild && container.firstChild.innerText.includes(msg)) return;
+
             const color = type === 'danger' ? 'text-red-400 font-bold' : 'text-yellow-400 italic';
-            container.insertAdjacentHTML('afterbegin', `<p class="${color}">[${time}] ${msg}</p>`);
+            
+            // Tampilan: [Senin, 05 April 2026 - 13:45:00] Pesan Peringatan
+            const formatLog = `<p class="${color}">[${waktu}] ${msg}</p>`;
+            
+            container.insertAdjacentHTML('afterbegin', formatLog);
         }
     </script>
 </body>
