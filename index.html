@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>masapistech | Smart Pond</title>
+    <title>Achmad | Smart Pond</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -19,13 +19,13 @@
 <body class="bg-gray-900 text-white font-sans">
     <div class="container mx-auto p-4 md:p-8 max-w-5xl">
         <div class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold text-blue-400 mb-2">Smart Catfish Pond Pak Achmad</h1>
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-400 mb-2">Monitoring Kolam Lele Pak Achmad</h1>
             <div class="flex items-center justify-center gap-2 mb-1">
                 <span id="connection-dot" class="text-red-500 text-xl">●</span> 
                 <span id="connection-text" class="text-sm font-bold tracking-widest uppercase text-red-500">Offline</span>
             </div>
             <p id="last-update" class="text-[10px] text-gray-500 italic mb-4"></p>
-            <p class="text-gray-400 italic text-sm">Monitoring Realtime by masapistech</p>
+            <p class="text-gray-400 italic text-sm">Monitoring Realtime by AnaknyaSendiri</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -135,7 +135,7 @@
 
         function processAlerts(d) {
             let statusBahaya = false;
-            let pesanLaporan = "⚠️ [ALARM MASAPITECH] ⚠️\n\n";
+            let pesanLaporan = "⚠️ [PERINGATAN PAK ACHMAD] ⚠️\n\n";
 
             // 1. Cek Suhu (25-30)
             if(d.temp < 25 || d.temp > 30) {
@@ -175,7 +175,7 @@
             // Reset kunci kalau semua sudah kembali IDEAL
             if(!statusBahaya) {
                 if(sudahLaporBahaya) {
-                    kirimTele("✅ [INFO] Kondisi kolam sudah kembali IDEAL.");
+                    kirimTele("✅ [INFO PAK ACHMAD] Kondisi kolam sudah kembali IDEAL.");
                 }
                 sudahLaporBahaya = false;
             }
